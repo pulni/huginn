@@ -136,7 +136,7 @@ Devise.setup do |config|
   # The time you want to timeout the user session without activity. After this
   # time the user will be asked for credentials again. Default is 30 minutes.
   # config.timeout_in = 30.minutes
-  
+
   # If true, expires auth token on session timeout.
   # config.expire_auth_token_on_timeout = false
 
@@ -214,6 +214,36 @@ Devise.setup do |config|
   # up on your models and hooks.
   # config.omniauth :github, 'APP_ID', 'APP_SECRET', :scope => 'user,public_repo'
 
+  if defined?(OmniAuth::Strategies::Twitter) &&
+     (key = ENV["TWITTER_OAUTH_KEY"]).present? &&
+     (secret = ENV["TWITTER_OAUTH_SECRET"]).present?
+    config.omniauth :twitter, key, secret, authorize_params: {force_login: 'true', use_authorize: 'true'}
+  end
+
+  if defined?(OmniAuth::Strategies::Tumblr) &&
+     (key = ENV["TUMBLR_OAUTH_KEY"]).present? &&
+     (secret = ENV["TUMBLR_OAUTH_SECRET"]).present?
+    config.omniauth :'tumblr', key, secret
+  end
+
+  if defined?(OmniAuth::Strategies::ThirtySevenSignals) &&
+     (key = ENV["THIRTY_SEVEN_SIGNALS_OAUTH_KEY"]).present? &&
+     (secret = ENV["THIRTY_SEVEN_SIGNALS_OAUTH_SECRET"]).present?
+    config.omniauth :'37signals', key, secret
+  end
+
+  if defined?(OmniAuth::Strategies::GitHub) &&
+     (key = ENV["GITHUB_OAUTH_KEY"]).present? &&
+     (secret = ENV["GITHUB_OAUTH_SECRET"]).present?
+    config.omniauth :github, key, secret
+  end
+
+  if defined?(OmniAuth::Strategies::Dropbox) &&
+     (key = ENV["DROPBOX_OAUTH_KEY"]).present? &&
+     (secret = ENV["DROPBOX_OAUTH_SECRET"]).present?
+    config.omniauth :dropbox, key, secret
+  end
+
   # ==> Warden configuration
   # If you want to use other strategies, that are not supported by Devise, or
   # change the failure app, you can configure them inside the config.warden block.
@@ -236,4 +266,5 @@ Devise.setup do |config|
   # When using omniauth, Devise cannot automatically set Omniauth path,
   # so you need to do it manually. For the users scope, it would be:
   # config.omniauth_path_prefix = "/my_engine/users/auth"
+  config.omniauth_path_prefix = "/auth"
 end

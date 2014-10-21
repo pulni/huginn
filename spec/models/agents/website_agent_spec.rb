@@ -3,7 +3,11 @@ require 'spec_helper'
 describe Agents::WebsiteAgent do
   describe "checking without basic auth" do
     before do
-      stub_request(:any, /xkcd/).to_return(:body => File.read(Rails.root.join("spec/data_fixtures/xkcd.html")), :status => 200)
+      stub_request(:any, /xkcd/).to_return(body: File.read(Rails.root.join("spec/data_fixtures/xkcd.html")),
+                                           status: 200,
+                                           headers: {
+                                             'X-Status-Message' => 'OK'
+                                           })
       @valid_options = {
         'name' => "XKCD",
         'expected_update_period_in_days' => "2",
@@ -25,71 +29,71 @@ describe Agents::WebsiteAgent do
 
     describe "validations" do
       before do
-        @checker.should be_valid
+        expect(@checker).to be_valid
       end
 
       it "should validate the integer fields" do
         @checker.options['expected_update_period_in_days'] = "2"
-        @checker.should be_valid
+        expect(@checker).to be_valid
 
         @checker.options['expected_update_period_in_days'] = "nonsense"
-        @checker.should_not be_valid
+        expect(@checker).not_to be_valid
       end
 
       it "should validate uniqueness_look_back" do
         @checker.options['uniqueness_look_back'] = "nonsense"
-        @checker.should_not be_valid
+        expect(@checker).not_to be_valid
 
         @checker.options['uniqueness_look_back'] = "2"
-        @checker.should be_valid
+        expect(@checker).to be_valid
       end
 
       it "should validate mode" do
         @checker.options['mode'] = "nonsense"
-        @checker.should_not be_valid
+        expect(@checker).not_to be_valid
 
         @checker.options['mode'] = "on_change"
-        @checker.should be_valid
+        expect(@checker).to be_valid
 
         @checker.options['mode'] = "all"
-        @checker.should be_valid
+        expect(@checker).to be_valid
 
         @checker.options['mode'] = ""
-        @checker.should be_valid
+        expect(@checker).to be_valid
       end
 
       it "should validate the force_encoding option" do
         @checker.options['force_encoding'] = ''
-        @checker.should be_valid
+        expect(@checker).to be_valid
 
         @checker.options['force_encoding'] = 'UTF-8'
-        @checker.should be_valid
+        expect(@checker).to be_valid
 
         @checker.options['force_encoding'] = ['UTF-8']
-        @checker.should_not be_valid
+        expect(@checker).not_to be_valid
 
         @checker.options['force_encoding'] = 'UTF-42'
-        @checker.should_not be_valid
+        expect(@checker).not_to be_valid
       end
     end
 
     describe "#check" do
       it "should check for changes (and update Event.expires_at)" do
-        lambda { @checker.check }.should change { Event.count }.by(1)
+        expect { @checker.check }.to change { Event.count }.by(1)
         event = Event.last
         sleep 2
-        lambda { @checker.check }.should_not change { Event.count }
+        expect { @checker.check }.not_to change { Event.count }
         update_event = Event.last
-        update_event.expires_at.should_not == event.expires_at
+        expect(update_event.expires_at).not_to eq(event.expires_at)
       end
 
       it "should always save events when in :all mode" do
-        lambda {
+        expect {
           @valid_options['mode'] = 'all'
           @checker.options = @valid_options
           @checker.check
           @checker.check
-        }.should change { Event.count }.by(2)
+        }.to change { Event.count }.by(2)
       end
 
       it "should take uniqueness_look_back into account during deduplication" do
@@ -101,50 +105,50 @@ describe Agents::WebsiteAgent do
         event.payload = "{}"
         event.save
 
-        lambda {
+        expect {
           @valid_options['mode'] = 'on_change'
           @valid_options['uniqueness_look_back'] = 2
           @checker.options = @valid_options
           @checker.check
-        }.should_not change { Event.count }
+        }.not_to change { Event.count }
 
-        lambda {
+        expect {
           @valid_options['mode'] = 'on_change'
           @valid_options['uniqueness_look_back'] = 1
           @checker.options = @valid_options
           @checker.check
-        }.should change { Event.count }.by(1)
+        }.to change { Event.count }.by(1)
       end
 
       it "should log an error if the number of results for a set of extraction patterns differs" do
         @valid_options['extract']['url']['css'] = "div"
         @checker.options = @valid_options
         @checker.check
-        @checker.logs.first.message.should =~ /Got an uneven number of matches/
+        expect(@checker.logs.first.message).to match(/Got an uneven number of matches/)
       end
 
       it "should accept an array for url" do
         @valid_options['url'] = ["http://xkcd.com/1/", "http://xkcd.com/2/"]
         @checker.options = @valid_options
-        lambda { @checker.save! }.should_not raise_error;
-        lambda { @checker.check }.should_not raise_error;
+        expect { @checker.save! }.not_to raise_error;
+        expect { @checker.check }.not_to raise_error;
       end
 
       it "should parse events from all urls in array" do
-        lambda {
+        expect {
           @valid_options['url'] = ["http://xkcd.com/", "http://xkcd.com/"]
           @valid_options['mode'] = 'all'
           @checker.options = @valid_options
           @checker.check
-        }.should change { Event.count }.by(2)
+        }.to change { Event.count }.by(2)
       end
 
       it "should follow unique rules when parsing array of urls" do
-        lambda {
+        expect {
           @valid_options['url'] = ["http://xkcd.com/", "http://xkcd.com/"]
           @checker.options = @valid_options
           @checker.check
-        }.should change { Event.count }.by(1)
+        }.to change { Event.count }.by(1)
       end
     end
 
@@ -173,7 +177,7 @@ describe Agents::WebsiteAgent do
 
         checker.check
         event = Event.last
-        event.payload['value'].should == huginn
+        expect(event.payload['value']).to eq(huginn)
       end
 
       it 'should be overridden with force_encoding option' do
@@ -200,7 +204,7 @@ describe Agents::WebsiteAgent do
 
         checker.check
         event = Event.last
-        event.payload['value'].should == huginn
+        expect(event.payload['value']).to eq(huginn)
       end
     end
 
@@ -209,20 +213,20 @@ describe Agents::WebsiteAgent do
         stubbed_time = Time.now
         stub(Time).now { stubbed_time }
 
-        @checker.should_not be_working # No events created
+        expect(@checker).not_to be_working # No events created
         @checker.check
-        @checker.reload.should be_working # Just created events
+        expect(@checker.reload).to be_working # Just created events
 
         @checker.error "oh no!"
-        @checker.reload.should_not be_working # There is a recent error
+        expect(@checker.reload).not_to be_working # There is a recent error
 
         stubbed_time = 20.minutes.from_now
         @checker.events.delete_all
         @checker.check
-        @checker.reload.should be_working # There is a newer event now
+        expect(@checker.reload).to be_working # There is a newer event now
 
         stubbed_time = 2.days.from_now
-        @checker.reload.should_not be_working # Two days have passed without a new event having been created
+        expect(@checker.reload).not_to be_working # Two days have passed without a new event having been created
       end
     end
 
@@ -230,9 +234,9 @@ describe Agents::WebsiteAgent do
       it "parses CSS" do
         @checker.check
         event = Event.last
-        event.payload['url'].should == "http://imgs.xkcd.com/comics/evolving.png"
-        event.payload['title'].should == "Evolving"
-        event.payload['hovertext'].should =~ /^Biologists play reverse/
+        expect(event.payload['url']).to eq("http://imgs.xkcd.com/comics/evolving.png")
+        expect(event.payload['title']).to eq("Evolving")
+        expect(event.payload['hovertext']).to match(/^Biologists play reverse/)
       end
 
       it "parses XPath" do
@@ -243,9 +247,9 @@ describe Agents::WebsiteAgent do
         @checker.options = @valid_options
         @checker.check
         event = Event.last
-        event.payload['url'].should == "http://imgs.xkcd.com/comics/evolving.png"
-        event.payload['title'].should == "Evolving"
-        event.payload['hovertext'].should =~ /^Biologists play reverse/
+        expect(event.payload['url']).to eq("http://imgs.xkcd.com/comics/evolving.png")
+        expect(event.payload['title']).to eq("Evolving")
+        expect(event.payload['hovertext']).to match(/^Biologists play reverse/)
       end
 
       it "should turn relative urls to absolute" do
@@ -264,7 +268,7 @@ describe Agents::WebsiteAgent do
         rel.save!
         rel.check
         event = Event.last
-        event.payload['url'].should == "http://xkcd.com/about"
+        expect(event.payload['url']).to eq("http://xkcd.com/about")
       end
 
       it "should return an integer value if XPath evaluates to one" do
@@ -283,7 +287,7 @@ describe Agents::WebsiteAgent do
         rel.save!
         rel.check
         event = Event.last
-        event.payload['num_links'].should == "9"
+        expect(event.payload['num_links']).to eq("9")
       end
 
       it "should return all texts concatenated if XPath returns many text nodes" do
@@ -302,7 +306,18 @@ describe Agents::WebsiteAgent do
         rel.save!
         rel.check
         event = Event.last
-        event.payload['slogan'].should == "A webcomic of romance, sarcasm, math, and language."
+        expect(event.payload['slogan']).to eq("A webcomic of romance, sarcasm, math, and language.")
+      end
+
+      it "should interpolate _response_" do
+        @valid_options['extract']['response_info'] =
+          @valid_options['extract']['url'].merge(
+            'value' => '"{{ "The reponse was " | append:_response_.status | append:" " | append:_response_.headers.X-Status-Message | append:"." }}"'
+          )
+        @checker.options = @valid_options
+        @checker.check
+        event = Event.last
+        expect(event.payload['response_info']).to eq('The reponse was 200 OK.')
       end
 
       describe "JSON" do
@@ -331,8 +346,8 @@ describe Agents::WebsiteAgent do
 
           checker.check
           event = Event.last
-          event.payload['version'].should == 2
-          event.payload['title'].should == "hello!"
+          expect(event.payload['version']).to eq(2)
+          expect(event.payload['title']).to eq("hello!")
         end
 
         it "can handle arrays" do
@@ -360,17 +375,17 @@ describe Agents::WebsiteAgent do
           checker.user = users(:bob)
           checker.save!
 
-          lambda {
+          expect {
             checker.check
-          }.should change { Event.count }.by(2)
+          }.to change { Event.count }.by(2)
 
           event = Event.all[-1]
-          event.payload['version'].should == 2.5
-          event.payload['title'].should == "second"
+          expect(event.payload['version']).to eq(2.5)
+          expect(event.payload['title']).to eq("second")
 
           event = Event.all[-2]
-          event.payload['version'].should == 2
-          event.payload['title'].should == "first"
+          expect(event.payload['version']).to eq(2)
+          expect(event.payload['title']).to eq("first")
         end
 
         it "stores the whole object if :extract is not specified" do
@@ -394,22 +409,117 @@ describe Agents::WebsiteAgent do
 
           checker.check
           event = Event.last
-          event.payload['response']['version'].should == 2
-          event.payload['response']['title'].should == "hello!"
+          expect(event.payload['response']['version']).to eq(2)
+          expect(event.payload['response']['title']).to eq("hello!")
+        end
+      end
+
+      describe "text parsing" do
+        before do
+          stub_request(:any, /text-site/).to_return(body: <<-EOF, status: 200)
+water: wet
+fire: hot
+          EOF
+          site = {
+            'name' => 'Some Text Response',
+            'expected_update_period_in_days' => '2',
+            'type' => 'text',
+            'url' => 'http://text-site.com',
+            'mode' => 'on_change',
+            'extract' => {
+              'word' => { 'regexp' => '^(.+?): (.+)$', index: 1 },
+              'property' => { 'regexp' => '^(.+?): (.+)$', index: 2 },
+            }
+          }
+          @checker = Agents::WebsiteAgent.new(name: 'Text Site', options: site)
+          @checker.user = users(:bob)
+          @checker.save!
+        end
+
+        it "works with regexp" do
+          @checker.options = @checker.options.merge('extract' => {
+            'word' => { 'regexp' => '^(?<word>.+?): (?<property>.+)$', index: 'word' },
+            'property' => { 'regexp' => '^(?<word>.+?): (?<property>.+)$', index: 'property' },
+          })
+
+          expect {
+            @checker.check
+          }.to change { Event.count }.by(2)
+
+          event1, event2 = Event.last(2)
+          expect(event1.payload['word']).to eq('water')
+          expect(event1.payload['property']).to eq('wet')
+          expect(event2.payload['word']).to eq('fire')
+          expect(event2.payload['property']).to eq('hot')
+        end
+
+        it "works with regexp with named capture" do
+          expect {
+            @checker.check
+          }.to change { Event.count }.by(2)
+
+          event1, event2 = Event.last(2)
+          expect(event1.payload['word']).to eq('water')
+          expect(event1.payload['property']).to eq('wet')
+          expect(event2.payload['word']).to eq('fire')
+          expect(event2.payload['property']).to eq('hot')
         end
       end
     end
 
     describe "#receive" do
-      it "should scrape from the url element in incoming event payload" do
+      before do
         @event = Event.new
         @event.agent = agents(:bob_rain_notifier_agent)
-        @event.payload = { 'url' => "http://xkcd.com" }
+        @event.payload = {
+          'url' => 'http://xkcd.com',
+          'link' => 'Random',
+        }
+      end
 
-        lambda {
+      it "should scrape from the url element in incoming event payload" do
+        expect {
           @checker.options = @valid_options
           @checker.receive([@event])
-        }.should change { Event.count }.by(1)
+        }.to change { Event.count }.by(1)
+      end
+
+      it "should interpolate values from incoming event payload" do
+        expect {
+          @valid_options['extract'] = {
+            'from' => {
+              'xpath' => '*[1]',
+              'value' => '{{url | to_xpath}}'
+            },
+            'to' => {
+              'xpath' => '(//a[@href and text()={{link | to_xpath}}])[1]',
+              'value' => '@href'
+            },
+          }
+          @checker.options = @valid_options
+          @checker.receive([@event])
+        }.to change { Event.count }.by(1)
+
+        expect(Event.last.payload).to eq({
+          'from' => 'http://xkcd.com',
+          'to' => 'http://dynamic.xkcd.com/random/comic/',
+        })
+      end
+
+      it "should interpolate values from incoming event payload and _response_" do
+        @event.payload['title'] = 'XKCD'
+
+        expect {
+          @valid_options['extract'] = {
+            'response_info' => @valid_options['extract']['url'].merge(
+              'value' => '{% capture sentence %}The reponse from {{title}} was {{_response_.status}} {{_response_.headers.X-Status-Message}}.{% endcapture %}{{sentence | to_xpath}}'
+            )
+          }
+          @checker.options = @valid_options
+          @checker.receive([@event])
+        }.to change { Event.count }.by(1)
+
+        expect(Event.last.payload['response_info']).to eq('The reponse from XKCD was 200 OK.')
       end
     end
   end
@@ -439,8 +549,8 @@ describe Agents::WebsiteAgent do
 
     describe "#check" do
       it "should check for changes" do
-        lambda { @checker.check }.should change { Event.count }.by(1)
-        lambda { @checker.check }.should_not change { Event.count }
+        expect { @checker.check }.to change { Event.count }.by(1)
+        expect { @checker.check }.not_to change { Event.count }
       end
     end
   end
@@ -448,7 +558,7 @@ describe Agents::WebsiteAgent do
   describe "checking with headers" do
     before do
       stub_request(:any, /example/).
-        with(headers: { 'foo' => 'bar', 'user_agent' => /Faraday/ }).
+        with(headers: { 'foo' => 'bar' }).
         to_return(:body => File.read(Rails.root.join("spec/data_fixtures/xkcd.html")), :status => 200)
       @valid_options = {
         'name' => "XKCD",
@@ -468,7 +578,7 @@ describe Agents::WebsiteAgent do
 
     describe "#check" do
       it "should check for changes" do
-        lambda { @checker.check }.should change { Event.count }.by(1)
+        expect { @checker.check }.to change { Event.count }.by(1)
       end
     end
   end
